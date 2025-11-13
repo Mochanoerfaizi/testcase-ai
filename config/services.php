@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'taiga' => [
+        'url' => env('TAIGA_URL'),
+        'username' => env('TAIGA_USERNAME'),
+        'password' => env('TAIGA_PASSWORD'),
+    ],
+
 ];
