@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PHP Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ea-backoffice
+    container_name: ea-backoffice
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - ea-network
+    depends_on:
+      - db
+
+  # Nginx Service
+  webserver:
+    image: nginx:alpine
+    container_name: ea-webserver
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker-compose/nginx:/etc/nginx/conf.d
+    networks:
+      - ea-network
+    depends_on:
+      - app
+
+  # PostgreSQL Service
+  db:
+    image: postgres:13.1-alpine
+    container_name: ea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_ea
+      POSTGRES_USER: ea_user
+      POSTGRES_PASSWORD: ea_p455123!!
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - ea-network
+
+# Docker Networks
+networks:
+  ea-network:
+    driver: bridge
+
+# Docker Volumes
+volumes:
+  db_data:
+    driver: local

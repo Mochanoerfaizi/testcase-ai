@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # PHP Service
+  app:
+    volumes:
+      - ./:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      APP_ENV: local
+      APP_DEBUG: 'true'
+    command: ash -c "php-fpm"
+
+  # Nginx Service
+  webserver:
+    volumes:
+      - ./:/var/www/html
+      - ./docker-compose/nginx:/etc/nginx/conf.d
+    ports:
+      - "8000:80"
+
+  # PostgreSQL Service
+  db:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: db_ea
+      POSTGRES_USER: ea_user
+      POSTGRES_PASSWORD: ea_p455123!!
+    volumes:
+      - db_data:/var/lib/postgresql/data
