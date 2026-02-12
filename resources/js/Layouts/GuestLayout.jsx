@@ -35,7 +35,7 @@ export default function GuestLayout({ children }) {
                     textAlign="center"
                     color="gray.700"
                 >
-                testcase
+                AI TEST-CASE GENERATOR
                 </Heading>
             </Flex>
 
