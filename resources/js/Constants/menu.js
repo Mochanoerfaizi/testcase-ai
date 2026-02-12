@@ -7,7 +7,7 @@ import {
     LuSettings, LuTable, LuUserCog,
     LuUsers
 } from "react-icons/lu";
-import {AiTwotoneDatabase} from "react-icons/ai";
+import { AiTwotoneDatabase } from "react-icons/ai";
 
 export const menuItems = [
     // {
@@ -29,6 +29,13 @@ export const menuItems = [
     //         { id: "dataset-input", label: "Dataset Entry", icon: LuFileInput, level: 2 , path: 'dataset-entry.index' },
     //     ],
     // },
+    {
+        id: "stories",
+        label: "Stories",
+        icon: LuFileText,
+        level: 1,
+        path: "stories.index",
+    },
     {
         id: "settings",
         label: "Settings",

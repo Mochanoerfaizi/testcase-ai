@@ -3,6 +3,7 @@
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\TaigaController;
+use App\Http\Controllers\StoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PageController::class, 'welcome'])->name('welcome');
@@ -16,6 +17,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Taiga routes
     Route::get('/api/taiga/projects', [TaigaController::class, 'getProjects'])->name('taiga.projects');
+
+    // Stories
+    Route::post('/stories/fetch-from-taiga', [StoryController::class, 'fetchStories'])->name('stories.fetch-from-taiga');
+    Route::resource('stories', StoryController::class);
 });
 
 require __DIR__.'/auth.php';

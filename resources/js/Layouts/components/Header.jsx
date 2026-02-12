@@ -6,6 +6,7 @@ import {
     Text,
     IconButton,
     Link,
+    Box,
 } from "@chakra-ui/react"
 import { LuMenu } from "react-icons/lu"
 
@@ -30,9 +31,9 @@ export default function Header({ header, toggleSidebar }) {
                     <LuMenu size={20} />
                 </IconButton>
                 {header && (
-                    <Text fontWeight="semibold" fontSize="lg" color="gray.800">
+                    <Box fontWeight="semibold" fontSize="lg" color="gray.800">
                         {header}
-                    </Text>
+                    </Box>
                 )}
             </HStack>
 

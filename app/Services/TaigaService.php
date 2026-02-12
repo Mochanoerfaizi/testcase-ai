@@ -148,4 +148,67 @@ class TaigaService
             return null;
         }
     }
+    /**
+     * Get stories for a specific project
+     */
+    public function getStories($projectId, $page = 1, $pageSize = 10)
+    {
+        $token = $this->getAuthToken();
+
+        if (!$token) {
+            return [
+                'success' => false,
+                'message' => 'Failed to authenticate with Taiga',
+                'data' => [],
+            ];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                // 'x-disable-pagination' => 'True', // Enable pagination
+            ])->get("{$this->baseUrl}/api/v1/userstories", [
+                'project' => $projectId,
+                'page' => $page,
+                'page_size' => $pageSize,
+            ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json(),
+                    'meta' => [
+                        'total' => (int) $response->header('x-pagination-count'),
+                        'current_page' => (int) $page,
+                        'per_page' => (int) $pageSize,
+                        'total_pages' => ceil((int) $response->header('x-pagination-count') / $pageSize),
+                    ]
+                ];
+            }
+
+            Log::error('Failed to fetch Taiga stories', [
+                'project_id' => $projectId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch stories from Taiga',
+                'data' => [],
+            ];
+        } catch (\Exception $e) {
+            Log::error('Taiga API error (getStories)', [
+                'project_id' => $projectId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => [],
+            ];
+        }
+    }
 }
