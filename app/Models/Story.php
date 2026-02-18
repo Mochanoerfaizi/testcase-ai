@@ -26,5 +26,10 @@ class Story extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function additionals()
+    {
+        return $this->hasMany(StoryAdditional::class);
+    }
     //
 }

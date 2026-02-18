@@ -17,11 +17,23 @@ class StoryController extends Controller
         $this->taigaService = $taigaService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $stories = Story::with('product')->latest()->get();
+        $query = Story::with(['product', 'additionals'])->latest();
+
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('subject', 'like', "%{$search}%")
+                  ->orWhere('taiga_id', 'like', "%{$search}%"); // taiga_id might be integer, but like works if casted or string
+            });
+        }
+
+        $stories = $query->get();
+
         return Inertia::render('Stories/Index', [
-            'stories' => $stories
+            'stories' => $stories,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -39,16 +51,62 @@ class StoryController extends Controller
         
         $page = $request->input('page', 1);
         $pageSize = $request->input('page_size', 10);
+        $milestoneId = $request->input('milestone_id'); // Optional milestone filter
 
-        $result = $this->taigaService->getStories($request->project_id, $page, $pageSize);
+        $result = $this->taigaService->getStories($request->project_id, $page, $pageSize, $milestoneId);
         
         if (!$result['success']) {
-            return back()->withErrors(['message' => $result['message']]);
+            return response()->json(['message' => $result['message']], 500); // Changed to JSON response for axios
         }
 
         return response()->json([
             'data' => $result['data'],
             'meta' => $result['meta']
+        ]);
+    }
+
+    public function fetchMilestones(Request $request)
+    {
+        $request->validate(['project_id' => 'required']);
+
+        $result = $this->taigaService->getMilestones($request->project_id);
+
+        if (!$result['success']) {
+            return response()->json(['message' => $result['message']], 500);
+        }
+
+        return response()->json([
+            'data' => $result['data']
+        ]);
+    }
+
+    public function fetchStoryDetails(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required',
+            'stories' => 'required|array',
+        ]);
+
+        $updatedStories = [];
+        // We know stories is an array of story objects from frontend
+        foreach ($request->stories as $story) {
+            if (isset($story['ref'])) {
+                // Fetch detail using ref
+                $detail = $this->taigaService->getStoryByRef($request->project_id, $story['ref']);
+                if ($detail) {
+                    $story['description'] = $detail['description'];
+                    $story['subject'] = $detail['subject'];
+                    if (isset($detail['owner_extra_info'])) {
+                         $story['owner_extra_info'] = $detail['owner_extra_info'];
+                    }
+                }
+            }
+            $updatedStories[] = $story;
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $updatedStories
         ]);
     }
 
@@ -100,5 +158,26 @@ class StoryController extends Controller
     {
         $story->delete();
         return redirect()->route('stories.index')->with('success', 'Story deleted successfully.');
+    }
+
+    public function saveAdditionals(Request $request, Story $story)
+    {
+        $request->validate([
+            'additionals' => 'array',
+            'additionals.*.key' => 'required|string',
+            'additionals.*.label' => 'required|string',
+            'additionals.*.value' => 'required|string',
+            'additionals.*.description' => 'nullable|string',
+        ]);
+
+        // Delete existing additionals
+        $story->additionals()->delete();
+
+        // Create new additionals
+         if ($request->has('additionals')) {
+            $story->additionals()->createMany($request->additionals);
+        }
+
+        return redirect()->back()->with('success', 'Additional information saved successfully.');
     }
 }

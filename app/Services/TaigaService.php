@@ -149,9 +149,9 @@ class TaigaService
         }
     }
     /**
-     * Get stories for a specific project
+     * Get milestones for a specific project
      */
-    public function getStories($projectId, $page = 1, $pageSize = 10)
+    public function getMilestones($projectId)
     {
         $token = $this->getAuthToken();
 
@@ -167,12 +167,85 @@ class TaigaService
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$token}",
                 'Content-Type' => 'application/json',
-                // 'x-disable-pagination' => 'True', // Enable pagination
-            ])->get("{$this->baseUrl}/api/v1/userstories", [
+            ])->get("{$this->baseUrl}/api/v1/milestones", [
+                'project' => $projectId,
+            ]);
+
+            if ($response->successful()) {
+                // Sort milestones by name (usually they are sprints like Sprint 1, Sprint 2...)
+                $milestones = collect($response->json())->map(function ($milestone) {
+                    return [
+                        'id' => $milestone['id'],
+                        'name' => $milestone['name'],
+                        'slug' => $milestone['slug'],
+                        'closed' => $milestone['closed'],
+                        'estimated_start' => $milestone['estimated_start'],
+                        'estimated_finish' => $milestone['estimated_finish'],
+                    ];
+                })->sortByDesc('id')->values()->all();
+
+                return [
+                    'success' => true,
+                    'data' => $milestones,
+                ];
+            }
+
+            Log::error('Failed to fetch Taiga milestones', [
+                'project_id' => $projectId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch milestones from Taiga',
+                'data' => [],
+            ];
+        } catch (\Exception $e) {
+            Log::error('Taiga API error (getMilestones)', [
+                'project_id' => $projectId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => [],
+            ];
+        }
+    }
+
+    /**
+     * Get stories for a specific project
+     */
+    public function getStories($projectId, $page = 1, $pageSize = 10, $milestoneId = null)
+    {
+        $token = $this->getAuthToken();
+
+        if (!$token) {
+            return [
+                'success' => false,
+                'message' => 'Failed to authenticate with Taiga',
+                'data' => [],
+            ];
+        }
+
+        try {
+            $queryParams = [
                 'project' => $projectId,
                 'page' => $page,
                 'page_size' => $pageSize,
-            ]);
+            ];
+
+            if ($milestoneId) {
+                $queryParams['milestone'] = $milestoneId;
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                // 'x-disable-pagination' => 'True', // Enable pagination
+            ])->get("{$this->baseUrl}/api/v1/userstories", $queryParams);
 
             if ($response->successful()) {
                 return [
@@ -209,6 +282,48 @@ class TaigaService
                 'message' => $e->getMessage(),
                 'data' => [],
             ];
+        }
+    }
+    /**
+     * Get a specific story by reference
+     */
+    public function getStoryByRef($projectId, $ref)
+    {
+        $token = $this->getAuthToken();
+
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+            ])->get("{$this->baseUrl}/api/v1/userstories/by_ref", [
+                'project' => $projectId,
+                'ref' => $ref,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Failed to fetch Taiga story by ref', [
+                'project_id' => $projectId,
+                'ref' => $ref,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Taiga API error (getStoryByRef)', [
+                'project_id' => $projectId,
+                'ref' => $ref,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 }
