@@ -13,11 +13,15 @@ return new class extends Migration
     {
         Schema::create('testcases', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('story_id')->constrained()->cascadeOnDelete();
-            $table->string('name');
-            $table->string('status')->default('Draft');
-            $table->text('description')->nullable();
-            $table->longText('script')->nullable();
+            $table->foreignId('story_id')->constrained()->onDelete('cascade');
+            $table->string('tc_id')->nullable();
+            $table->string('title')->nullable();
+            $table->text('summary')->nullable();
+            $table->string('severity')->nullable();
+            $table->text('prerequisites')->nullable();
+            $table->text('test_procedure')->nullable();
+            $table->text('expected_result')->nullable();
+            $table->string('case_type')->nullable(); // Positive / Negative
             $table->timestamps();
         });
     }

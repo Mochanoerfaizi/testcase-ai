@@ -8,10 +8,14 @@ class Testcase extends Model
 {
     protected $fillable = [
         'story_id',
-        'name',
-        'status',
-        'description',
-        'script',
+        'tc_id',
+        'title',
+        'summary',
+        'severity',
+        'prerequisites',
+        'test_procedure',
+        'expected_result',
+        'case_type'
     ];
 
     public function story()

@@ -1,19 +1,56 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, router } from "@inertiajs/react";
 import { useState } from "react";
-import { Box, Button, Flex, Text, Heading, VStack, HStack, Badge, Grid, GridItem, Card, Table } from "@chakra-ui/react";
-import { MdArrowBack } from "react-icons/md";
+import * as XLSX from "xlsx";
+import {
+    Box, Button, Flex, Text, Heading, VStack, HStack, Badge,
+    Grid, GridItem, Card, Table, Separator
+} from "@chakra-ui/react";
+import { MdArrowBack, MdDownload, MdAutoAwesome, MdPerson, MdCalendarToday, MdImportExport } from "react-icons/md";
+
+const severityColor = (s) => {
+    if (!s) return "gray";
+    if (s === "Critical" || s === "High") return "red";
+    if (s === "Medium") return "orange";
+    return "green";
+};
+
+const caseTypeColor = (t) => {
+    if (!t) return "gray";
+    return t.toLowerCase().includes("positive") ? "teal" : "red";
+};
 
 export default function StoryShow({ story }) {
     const [isGenerating, setIsGenerating] = useState(false);
 
     const generateTestcases = () => {
         setIsGenerating(true);
-        router.post(route('testcases.generate', story.id), {}, {
+        router.post(route("testcases.generate", story.id), {}, {
             preserveScroll: true,
             onFinish: () => setIsGenerating(false),
         });
     };
+
+    const exportToXlsx = () => {
+        if (!story.testcases || story.testcases.length === 0) return;
+        const dataRows = story.testcases.map((tc) => ({
+            "TestCase ID": tc.tc_id,
+            "Title": tc.title,
+            "Test Case Summary": tc.summary,
+            "Severity": tc.severity,
+            "Positive/Negative": tc.case_type,
+            "Prerequisites": tc.prerequisites,
+            "Test Procedure": tc.test_procedure,
+            "Expected Result": tc.expected_result,
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(dataRows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Testcases");
+        XLSX.writeFile(workbook, `Testcases_Story_${story.taiga_id}.xlsx`);
+    };
+
+    const hasTestcases = story.testcases && story.testcases.length > 0;
+
     return (
         <AuthenticatedLayout
             header={
@@ -24,184 +61,317 @@ export default function StoryShow({ story }) {
         >
             <Head title={`Story - ${story.taiga_id}`} />
 
-            <Box maxW="7xl" mx="auto" py={6} px={{ base: 4, sm: 6, lg: 8 }}>
-                <Box mb={6}>
-                    <Button as={Link} href={route('stories.index')} variant="ghost" pl={0}>
-                        <MdArrowBack /> Back to Stories
+            <Box maxW="7xl" mx="auto" py={6} px={{ base: 4, sm: 6, lg: 8 }} overflow="hidden">
+
+                {/* Back Button */}
+                <Box mb={5}>
+                    <Button as={Link} href={route("stories.index")} variant="ghost" size="sm" pl={0} color="gray.600" _hover={{ color: "gray.900" }}>
+                        <MdArrowBack style={{ marginRight: 6 }} /> Back to Stories
                     </Button>
                 </Box>
 
-                <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
-                    {/* Main Content Area */}
-                    <GridItem>
-                        <Card.Root bg="white" shadow="md" borderRadius="xl" overflow="hidden">
-                            <Card.Body>
-                                <Flex justify="space-between" align="flex-start" mb={4}>
-                                    <VStack align="start" spacing={1}>
-                                        <HStack>
-                                            <Badge colorPalette="blue" px={2} py={1} borderRadius="md">
-                                                Taiga ID: {story.taiga_id}
-                                            </Badge>
-                                            {story.product && (
-                                                <Badge colorPalette="green" px={2} py={1} borderRadius="md">
-                                                    Product: {story.product.name}
-                                                </Badge>
-                                            )}
-                                        </HStack>
-                                        <Heading as="h1" size="lg" mt={2} color="gray.800">
-                                            {story.subject}
-                                        </Heading>
-                                    </VStack>
-                                    {(!story.testcases || story.testcases.length === 0) && (
-                                        <Button 
-                                            colorPalette="teal" 
-                                            onClick={generateTestcases}
-                                            disabled={isGenerating}
+                {/* ── Hero Header Card ── */}
+                <Card.Root
+                    mb={6}
+                    borderRadius="2xl"
+                    overflow="hidden"
+                    shadow="lg"
+                    bgGradient="to-br"
+                    gradientFrom="blue.600"
+                    gradientTo="teal.500"
+                >
+                    <Card.Body p={{ base: 5, md: 8 }}>
+                        <Flex
+                            direction={{ base: "column", md: "row" }}
+                            justify="space-between"
+                            align={{ base: "flex-start", md: "center" }}
+                            gap={4}
+                        >
+                            <Box>
+                                <HStack mb={3} flexWrap="wrap" gap={2}>
+                                    <Badge
+                                        bg="whiteAlpha.300"
+                                        color="white"
+                                        px={3}
+                                        py={1}
+                                        borderRadius="full"
+                                        fontSize="xs"
+                                        fontWeight="semibold"
+                                    >
+                                        Taiga ID: {story.taiga_id}
+                                    </Badge>
+                                    {story.product && (
+                                        <Badge
+                                            bg="whiteAlpha.300"
+                                            color="white"
+                                            px={3}
+                                            py={1}
+                                            borderRadius="full"
+                                            fontSize="xs"
+                                            fontWeight="semibold"
                                         >
-                                            {isGenerating ? "Generating..." : "Generate Testcases"}
-                                        </Button>
-                                    )}
-                                </Flex>
-                                
-                                <Box as="hr" borderColor="gray.200" my={4} />
-                                
-                                <Box>
-                                    <Heading as="h3" size="sm" color="gray.500" mb={3} textTransform="uppercase" letterSpacing="wide">
-                                        Description
-                                    </Heading>
-                                    {story.description ? (
-                                        <Box 
-                                            className="prose max-w-none text-gray-700"
-                                            dangerouslySetInnerHTML={{ __html: story.description }}
-                                            sx={{
-                                                '& p': { mb: 4 },
-                                                '& ul, & ol': { pl: 5, mb: 4 },
-                                                '& h1, & h2, & h3, & h4': { mt: 6, mb: 4, fontWeight: 'bold' }
-                                            }}
-                                        />
-                                    ) : (
-                                        <Text fontStyle="italic" color="gray.400">No description provided.</Text>
-                                    )}
-                                </Box>
-
-                                {/* Testcases Section */}
-                                {story.testcases && story.testcases.length > 0 && (
-                                    <Box mt={8}>
-                                        <Heading as="h3" size="md" mb={4} color="gray.700" pb={2} borderBottomWidth="1px" borderColor="gray.200">
-                                            Generated Testcases
-                                        </Heading>
-                                        <Box overflowX="auto">
-                                            <Table.Root variant="simple" size="sm">
-                                                <Table.Header>
-                                                    <Table.Row>
-                                                        <Table.ColumnHeader>Name</Table.ColumnHeader>
-                                                        <Table.ColumnHeader>Status</Table.ColumnHeader>
-                                                        <Table.ColumnHeader>Description</Table.ColumnHeader>
-                                                        <Table.ColumnHeader>Script / Steps</Table.ColumnHeader>
-                                                    </Table.Row>
-                                                </Table.Header>
-                                                <Table.Body>
-                                                    {story.testcases.map((tc, idx) => (
-                                                        <Table.Row key={tc.id || idx}>
-                                                            <Table.Cell fontWeight="bold" color="blue.700" whiteSpace="normal" minW="200px">
-                                                                {tc.name}
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <Badge colorPalette="orange" variant="subtle">{tc.status}</Badge>
-                                                            </Table.Cell>
-                                                            <Table.Cell whiteSpace="normal" minW="250px">
-                                                                {tc.description}
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                {tc.script ? (
-                                                                    <Box as="pre" p={2} bg="gray.800" color="green.300" rounded="md" fontSize="xs" overflowX="auto" whiteSpace="pre-wrap" maxH="150px" maxW="400px" overflowY="auto">
-                                                                        {tc.script}
-                                                                    </Box>
-                                                                ) : '-'}
-                                                            </Table.Cell>
-                                                        </Table.Row>
-                                                    ))}
-                                                </Table.Body>
-                                            </Table.Root>
-                                        </Box>
-                                    </Box>
-                                )}
-                            </Card.Body>
-                        </Card.Root>
-                    </GridItem>
-
-                    {/* Sidebar / Metadata Area */}
-                    <GridItem>
-                        <VStack spacing={6} align="stretch">
-                            <Card.Root bg="white" shadow="md" borderRadius="xl">
-                                <Card.Body>
-                                    <Heading as="h3" size="sm" color="gray.500" mb={4} textTransform="uppercase" letterSpacing="wide">
-                                        Metadata
-                                    </Heading>
-                                    <VStack align="start" spacing={3}>
-                                        <Box>
-                                            <Text fontSize="sm" color="gray.500">Creator</Text>
-                                            <Text fontWeight="medium">{story.creator_name}</Text>
-                                        </Box>
-                                        {story.assigned_to && (
-                                            <Box>
-                                                <Text fontSize="sm" color="gray.500">Assigned To</Text>
-                                                <Text fontWeight="medium">{story.assigned_to.full_name_display || 'Unknown'}</Text>
-                                            </Box>
-                                        )}
-                                        <Box>
-                                            <Text fontSize="sm" color="gray.500">Created At (Taiga)</Text>
-                                            <Text fontWeight="medium">
-                                                {new Date(story.taiga_created_at).toLocaleString()}
-                                            </Text>
-                                        </Box>
-                                        <Box>
-                                            <Text fontSize="sm" color="gray.500">Imported At</Text>
-                                            <Text fontWeight="medium">
-                                                {new Date(story.created_at).toLocaleString()}
-                                            </Text>
-                                        </Box>
-                                    </VStack>
-                                </Card.Body>
-                            </Card.Root>
-
-                            {/* Additional Info Section */}
-                            <Card.Root bg="white" shadow="md" borderRadius="xl">
-                                <Card.Body>
-                                    <Flex justify="space-between" align="center" mb={4}>
-                                        <Heading as="h3" size="sm" color="gray.500" textTransform="uppercase" letterSpacing="wide">
-                                            Additional Info
-                                        </Heading>
-                                        <Badge colorPalette="purple" borderRadius="full">
-                                            {story.additionals?.length || 0} items
+                                            {story.product.name}
                                         </Badge>
-                                    </Flex>
-                                    
-                                    {story.additionals && story.additionals.length > 0 ? (
-                                        <VStack align="stretch" spacing={3}>
-                                            {story.additionals.map((item, index) => (
-                                                <Box key={index} borderBottomWidth={index !== story.additionals.length - 1 ? "1px" : "0"} borderColor="gray.100" pb={3}>
-                                                    <HStack justify="space-between" mb={1}>
-                                                        <Text fontWeight="bold" fontSize="sm" color="gray.700">{item.label}</Text>
-                                                        <Badge variant="subtle" size="sm">{item.key}</Badge>
-                                                    </HStack>
-                                                    <Text fontWeight="medium" mb={1}>{item.value}</Text>
-                                                    {item.description && (
-                                                        <Text fontSize="xs" color="gray.500">{item.description}</Text>
-                                                    )}
-                                                </Box>
-                                            ))}
-                                        </VStack>
-                                    ) : (
-                                        <Text fontSize="sm" color="gray.400" fontStyle="italic">
-                                            No additional information found.
-                                        </Text>
                                     )}
-                                </Card.Body>
-                            </Card.Root>
-                        </VStack>
-                    </GridItem>
+                                </HStack>
+                                <Heading as="h1" size={{ base: "lg", md: "xl" }} color="white" lineHeight="shorter">
+                                    {story.subject}
+                                </Heading>
+                            </Box>
+
+                            {!hasTestcases && (
+                                <Button
+                                    onClick={generateTestcases}
+                                    disabled={isGenerating}
+                                    bg="white"
+                                    color="blue.700"
+                                    _hover={{ bg: "blue.50" }}
+                                    shadow="md"
+                                    size="md"
+                                    flexShrink={0}
+                                    fontWeight="semibold"
+                                    minW="170px"
+                                >
+                                    <MdAutoAwesome style={{ marginRight: 6 }} />
+                                    {isGenerating ? "Generating..." : "Generate Testcases"}
+                                </Button>
+                            )}
+                        </Flex>
+                    </Card.Body>
+                </Card.Root>
+
+                {/* ── Description Card (full width) ── */}
+                <Card.Root bg="white" shadow="sm" borderRadius="xl" mb={6}>
+                    <Card.Body p={{ base: 5, md: 7 }}>
+                        <Heading as="h3" size="sm" color="gray.400" textTransform="uppercase" letterSpacing="widest" mb={4}>
+                            Description
+                        </Heading>
+                        <Separator mb={4} />
+                        {story.description ? (
+                            <Box
+                                className="prose max-w-none text-gray-700"
+                                dangerouslySetInnerHTML={{ __html: story.description }}
+                                sx={{
+                                    "& p": { mb: 4, lineHeight: 1.8, color: "gray.700", wordBreak: "break-word", overflowWrap: "anywhere" },
+                                    "& ul, & ol": { pl: 5, mb: 4 },
+                                    "& li": { mb: 1, wordBreak: "break-word", overflowWrap: "anywhere" },
+                                    "& h1, & h2, & h3, & h4": { mt: 6, mb: 3, fontWeight: "bold" },
+                                    "& a": { color: "blue.500", wordBreak: "break-all" },
+                                    "& img": { maxW: "100%", h: "auto" },
+                                    wordBreak: "break-word",
+                                    overflowWrap: "anywhere",
+                                    overflow: "hidden",
+                                }}
+                            />
+                        ) : (
+                            <Text fontStyle="italic" color="gray.400" fontSize="sm">
+                                No description provided.
+                            </Text>
+                        )}
+                    </Card.Body>
+                </Card.Root>
+
+                {/* ── Metadata + Additional Info (side by side) ── */}
+                <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6} mb={6}>
+
+                    {/* Metadata Card */}
+                    <Card.Root bg="white" shadow="sm" borderRadius="xl">
+                        <Card.Body p={{ base: 5, md: 6 }}>
+                            <Heading as="h3" size="sm" color="gray.400" textTransform="uppercase" letterSpacing="widest" mb={4}>
+                                Metadata
+                            </Heading>
+                            <Separator mb={4} />
+                            <Grid templateColumns={{ base: "1fr", sm: "1fr 1fr" }} gap={4}>
+                                <Flex align="center" gap={3}>
+                                    <Box color="blue.400" flexShrink={0}>
+                                        <MdPerson size={18} />
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="xs" color="gray.400" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Creator</Text>
+                                        <Text fontSize="sm" fontWeight="semibold" color="gray.700">{story.creator_name || "—"}</Text>
+                                    </Box>
+                                </Flex>
+
+                                {story.assigned_to && (
+                                    <Flex align="center" gap={3}>
+                                        <Box color="teal.400" flexShrink={0}>
+                                            <MdPerson size={18} />
+                                        </Box>
+                                        <Box>
+                                            <Text fontSize="xs" color="gray.400" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Assigned To</Text>
+                                            <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+                                                {story.assigned_to.full_name_display || "Unknown"}
+                                            </Text>
+                                        </Box>
+                                    </Flex>
+                                )}
+
+                                <Flex align="center" gap={3}>
+                                    <Box color="purple.400" flexShrink={0}>
+                                        <MdCalendarToday size={16} />
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="xs" color="gray.400" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Created (Taiga)</Text>
+                                        <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+                                            {new Date(story.taiga_created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
+                                        </Text>
+                                    </Box>
+                                </Flex>
+
+                                <Flex align="center" gap={3}>
+                                    <Box color="orange.400" flexShrink={0}>
+                                        <MdImportExport size={18} />
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="xs" color="gray.400" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Imported At</Text>
+                                        <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+                                            {new Date(story.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                            </Grid>
+                        </Card.Body>
+                    </Card.Root>
+
+                    {/* Additional Info Card */}
+                    <Card.Root bg="white" shadow="sm" borderRadius="xl">
+                        <Card.Body p={{ base: 5, md: 6 }}>
+                            <Flex justify="space-between" align="center" mb={4}>
+                                <Heading as="h3" size="sm" color="gray.400" textTransform="uppercase" letterSpacing="widest">
+                                    Additional Info
+                                </Heading>
+                                <Badge colorPalette="purple" borderRadius="full" px={2}>
+                                    {story.additionals?.length || 0}
+                                </Badge>
+                            </Flex>
+                            <Separator mb={4} />
+
+                            {story.additionals && story.additionals.length > 0 ? (
+                                <VStack align="stretch" gap={3}>
+                                    {story.additionals.map((item, index) => (
+                                        <Box
+                                            key={index}
+                                            p={3}
+                                            bg="gray.50"
+                                            borderRadius="lg"
+                                            borderLeftWidth="3px"
+                                            borderLeftColor="purple.400"
+                                        >
+                                            <HStack justify="space-between" mb={1}>
+                                                <Text fontWeight="semibold" fontSize="sm" color="gray.700">{item.label}</Text>
+                                                <Badge variant="subtle" colorPalette="gray" size="sm">{item.key}</Badge>
+                                            </HStack>
+                                            <Text fontSize="sm" color="gray.600" mb={item.description ? 1 : 0}>{item.value}</Text>
+                                            {item.description && (
+                                                <Text fontSize="xs" color="gray.400">{item.description}</Text>
+                                            )}
+                                        </Box>
+                                    ))}
+                                </VStack>
+                            ) : (
+                                <Text fontSize="sm" color="gray.400" fontStyle="italic">
+                                    No additional information found.
+                                </Text>
+                            )}
+                        </Card.Body>
+                    </Card.Root>
+
                 </Grid>
+
+                {/* ── Testcases Table Card ── */}
+                {hasTestcases && (
+                    <Card.Root bg="white" shadow="sm" borderRadius="xl" mt={6}>
+                        <Card.Body p={{ base: 4, md: 7 }}>
+                            <Flex
+                                direction={{ base: "column", sm: "row" }}
+                                justify="space-between"
+                                align={{ base: "flex-start", sm: "center" }}
+                                mb={5}
+                                pb={4}
+                                borderBottomWidth="1px"
+                                borderColor="gray.100"
+                                gap={{ base: 3, sm: 0 }}
+                            >
+                                <Box>
+                                    <Heading as="h3" size="md" color="gray.700">
+                                        Generated Testcases
+                                    </Heading>
+                                    <Text fontSize="sm" color="gray.400" mt={1}>
+                                        {story.testcases.length} testcase{story.testcases.length !== 1 ? "s" : ""} generated by AI
+                                    </Text>
+                                </Box>
+                                <Button
+                                    onClick={exportToXlsx}
+                                    colorPalette="green"
+                                    size="sm"
+                                    flexShrink={0}
+                                >
+                                    <MdDownload style={{ marginRight: 4 }} />
+                                    Export (.xlsx)
+                                </Button>
+                            </Flex>
+
+                            {/* Scrollable table container — scroll hanya di dalam card */}
+                            <Box overflowX="auto">
+                                <Table.Root variant="outline" size="sm">
+                                    <Table.Header>
+                                        <Table.Row bg="gray.50">
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide">TC ID</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide" minW="160px">Title</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide" minW="180px">Test Case Summary</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide">Severity</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide">Positive/Negative</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide" minW="200px">Prerequisites</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide" minW="220px">Test Procedure</Table.ColumnHeader>
+                                            <Table.ColumnHeader whiteSpace="nowrap" color="gray.600" fontWeight="semibold" fontSize="xs" textTransform="uppercase" letterSpacing="wide" minW="200px">Expected Result</Table.ColumnHeader>
+                                        </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {story.testcases.map((tc, idx) => (
+                                            <Table.Row
+                                                key={tc.id || idx}
+                                                _hover={{ bg: "blue.50" }}
+                                                transition="background 0.15s"
+                                            >
+                                                <Table.Cell whiteSpace="nowrap">
+                                                    <Badge colorPalette="blue" variant="subtle" fontFamily="mono" fontWeight="bold">
+                                                        {tc.tc_id}
+                                                    </Badge>
+                                                </Table.Cell>
+                                                <Table.Cell fontWeight="semibold" color="gray.800" whiteSpace="normal">
+                                                    {tc.title}
+                                                </Table.Cell>
+                                                <Table.Cell color="gray.600" whiteSpace="normal" fontSize="sm">
+                                                    {tc.summary}
+                                                </Table.Cell>
+                                                <Table.Cell whiteSpace="nowrap">
+                                                    <Badge variant="subtle" colorPalette={severityColor(tc.severity)}>
+                                                        {tc.severity}
+                                                    </Badge>
+                                                </Table.Cell>
+                                                <Table.Cell whiteSpace="nowrap">
+                                                    <Badge variant="subtle" colorPalette={caseTypeColor(tc.case_type)}>
+                                                        {tc.case_type}
+                                                    </Badge>
+                                                </Table.Cell>
+                                                <Table.Cell color="gray.600" fontSize="sm" whiteSpace="pre-wrap" verticalAlign="top">
+                                                    {tc.prerequisites}
+                                                </Table.Cell>
+                                                <Table.Cell color="gray.600" fontSize="sm" whiteSpace="pre-wrap" verticalAlign="top">
+                                                    {tc.test_procedure}
+                                                </Table.Cell>
+                                                <Table.Cell color="gray.600" fontSize="sm" whiteSpace="pre-wrap" verticalAlign="top">
+                                                    {tc.expected_result}
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        ))}
+                                    </Table.Body>
+                                </Table.Root>
+                            </Box>
+                        </Card.Body>
+                    </Card.Root>
+                )}
+
             </Box>
         </AuthenticatedLayout>
     );

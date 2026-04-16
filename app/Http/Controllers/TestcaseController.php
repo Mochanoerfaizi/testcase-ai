@@ -24,7 +24,7 @@ class TestcaseController extends Controller
             $url = rtrim($url, '/') . '/v1/chat/completions';
         }
 
-        $prompt = "Buatkan testcase QA berdasarkan deskripsi user story berikut. Hasilkan tepat dua testcase: satu positif (Positive Case) dan satu negatif (Negative Case). Hanya kembalikan output murni dalam format array JSON tanpa markdown block (jangan pakai ```json). Setiap item dalam array adalah sebuah objek yang memiliki field 'name' (nama testcase), 'status' (isi dengan 'Draft'), 'description' (deskripsi langkah), dan 'script' (opsional, kode skenario seperti Gherkin atau instruksi kode, null jika tidak ada). \n\nDeskripsi Story:\n" . strip_tags($story->description);
+        $prompt = "Buatkan testcase QA dalam bahasa indonesia berdasarkan deskripsi user story berikut. Hasilkan tepat dua testcase: satu positif (Positive Case) dan satu negatif (Negative Case). Hanya kembalikan output murni dalam format array JSON tanpa markdown block (jangan pakai ```json). Setiap item dalam array adalah sebuah objek yang memiliki field: 'tc_id' (contoh: 'TC0001'), 'title' (judul singkat), 'summary' (ringkasan), 'severity' (Low/Medium/High/Critical), 'prerequisites' (prasyarat), 'test_procedure' (langkah-langkah terurut bernomor), 'expected_result' (hasil yang diharapkan), dan 'case_type' (isi dengan 'Positive' atau 'Negative'). \n\nDeskripsi Story:\n" . strip_tags($story->description);
 
         try {
             // Set up a slightly longer timeout just in case the AI takes time
@@ -58,17 +58,25 @@ class TestcaseController extends Controller
                 }
 
                 $createdCount = 0;
-                foreach ($testcasesData as $tc) {
-                    if (!empty($tc['name'])) {
-                        Testcase::create([
-                            'story_id' => $story->id,
-                            'name' => $tc['name'],
-                            'status' => $tc['status'] ?? 'Draft',
-                            'description' => $tc['description'] ?? null,
-                            'script' => $tc['script'] ?? null,
-                        ]);
-                        $createdCount++;
-                    }
+                foreach ($testcasesData as $tcData) {
+                    
+                    // Helper to prevent Array to string conversion error from AI payload
+                    $toString = function($val) {
+                        if (is_array($val)) return implode("\n", $val);
+                        return is_string($val) ? $val : null;
+                    };
+
+                    $story->testcases()->create([
+                        'tc_id' => $tcData['tc_id'] ?? null,
+                        'title' => $tcData['title'] ?? 'Untitled',
+                        'summary' => $toString($tcData['summary'] ?? null),
+                        'severity' => $tcData['severity'] ?? null,
+                        'prerequisites' => $toString($tcData['prerequisites'] ?? null),
+                        'test_procedure' => $toString($tcData['test_procedure'] ?? null),
+                        'expected_result' => $toString($tcData['expected_result'] ?? null),
+                        'case_type' => $tcData['case_type'] ?? null,
+                    ]);
+                    $createdCount++;
                 }
 
                 return redirect()->back()->with('success', "Berhasil men-generate {$createdCount} testcase baru menggunakan AI.");
@@ -81,5 +89,49 @@ class TestcaseController extends Controller
             Log::error('Exception in UI generation: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Terjadi kesalahan sistem internal: ' . $e->getMessage());
         }
+    }
+
+    public function export(Story $story)
+    {
+        $testcases = $story->testcases;
+
+        if ($testcases->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada testcase untuk di-export.');
+        }
+
+        $fileName = "Testcases_Story_{$story->taiga_id}.csv";
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['ID', 'Name', 'Status', 'Description', 'Script'];
+
+        $callback = function() use($testcases, $columns) {
+            $file = fopen('php://output', 'w');
+            
+            // Add UTF-8 BOM so Excel opens it with proper encoding
+            fputs($file, $bom =(chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            
+            fputcsv($file, $columns);
+
+            foreach ($testcases as $tc) {
+                $row = [
+                    $tc->id,
+                    $tc->name,
+                    $tc->status,
+                    $tc->description,
+                    $tc->script
+                ];
+                fputcsv($file, $row);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }
