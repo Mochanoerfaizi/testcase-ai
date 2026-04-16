@@ -41,4 +41,10 @@ return [
         'password' => env('TAIGA_PASSWORD'),
     ],
 
+    'openai_custom' => [
+        'url' => env('OPENAI_CUSTOM_URL'),
+        'key' => env('OPENAI_CUSTOM_KEY'),
+        'model' => env('OPENAI_CUSTOM_MODEL', 'gpt-3.5-turbo'),
+    ],
+
 ];

@@ -1,9 +1,19 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { Head, Link } from "@inertiajs/react";
-import { Box, Button, Flex, Text, Heading, VStack, HStack, Badge, Grid, GridItem, Card } from "@chakra-ui/react";
+import { Head, Link, router } from "@inertiajs/react";
+import { useState } from "react";
+import { Box, Button, Flex, Text, Heading, VStack, HStack, Badge, Grid, GridItem, Card, Table } from "@chakra-ui/react";
 import { MdArrowBack } from "react-icons/md";
 
 export default function StoryShow({ story }) {
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const generateTestcases = () => {
+        setIsGenerating(true);
+        router.post(route('testcases.generate', story.id), {}, {
+            preserveScroll: true,
+            onFinish: () => setIsGenerating(false),
+        });
+    };
     return (
         <AuthenticatedLayout
             header={
@@ -42,6 +52,15 @@ export default function StoryShow({ story }) {
                                             {story.subject}
                                         </Heading>
                                     </VStack>
+                                    {(!story.testcases || story.testcases.length === 0) && (
+                                        <Button 
+                                            colorPalette="teal" 
+                                            onClick={generateTestcases}
+                                            disabled={isGenerating}
+                                        >
+                                            {isGenerating ? "Generating..." : "Generate Testcases"}
+                                        </Button>
+                                    )}
                                 </Flex>
                                 
                                 <Box as="hr" borderColor="gray.200" my={4} />
@@ -64,6 +83,49 @@ export default function StoryShow({ story }) {
                                         <Text fontStyle="italic" color="gray.400">No description provided.</Text>
                                     )}
                                 </Box>
+
+                                {/* Testcases Section */}
+                                {story.testcases && story.testcases.length > 0 && (
+                                    <Box mt={8}>
+                                        <Heading as="h3" size="md" mb={4} color="gray.700" pb={2} borderBottomWidth="1px" borderColor="gray.200">
+                                            Generated Testcases
+                                        </Heading>
+                                        <Box overflowX="auto">
+                                            <Table.Root variant="simple" size="sm">
+                                                <Table.Header>
+                                                    <Table.Row>
+                                                        <Table.ColumnHeader>Name</Table.ColumnHeader>
+                                                        <Table.ColumnHeader>Status</Table.ColumnHeader>
+                                                        <Table.ColumnHeader>Description</Table.ColumnHeader>
+                                                        <Table.ColumnHeader>Script / Steps</Table.ColumnHeader>
+                                                    </Table.Row>
+                                                </Table.Header>
+                                                <Table.Body>
+                                                    {story.testcases.map((tc, idx) => (
+                                                        <Table.Row key={tc.id || idx}>
+                                                            <Table.Cell fontWeight="bold" color="blue.700" whiteSpace="normal" minW="200px">
+                                                                {tc.name}
+                                                            </Table.Cell>
+                                                            <Table.Cell>
+                                                                <Badge colorPalette="orange" variant="subtle">{tc.status}</Badge>
+                                                            </Table.Cell>
+                                                            <Table.Cell whiteSpace="normal" minW="250px">
+                                                                {tc.description}
+                                                            </Table.Cell>
+                                                            <Table.Cell>
+                                                                {tc.script ? (
+                                                                    <Box as="pre" p={2} bg="gray.800" color="green.300" rounded="md" fontSize="xs" overflowX="auto" whiteSpace="pre-wrap" maxH="150px" maxW="400px" overflowY="auto">
+                                                                        {tc.script}
+                                                                    </Box>
+                                                                ) : '-'}
+                                                            </Table.Cell>
+                                                        </Table.Row>
+                                                    ))}
+                                                </Table.Body>
+                                            </Table.Root>
+                                        </Box>
+                                    </Box>
+                                )}
                             </Card.Body>
                         </Card.Root>
                     </GridItem>

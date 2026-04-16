@@ -31,5 +31,9 @@ class Story extends Model
     {
         return $this->hasMany(StoryAdditional::class);
     }
-    //
+
+    public function testcases()
+    {
+        return $this->hasMany(Testcase::class);
+    }
 }

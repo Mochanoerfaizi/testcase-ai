@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/stories/fetch-milestones', [StoryController::class, 'fetchMilestones'])->name('stories.fetch-milestones');
     Route::post('/stories/fetch-details', [StoryController::class, 'fetchStoryDetails'])->name('stories.fetch-details');
     Route::post('/stories/{story}/additionals', [StoryController::class, 'saveAdditionals'])->name('stories.save-additionals');
+    Route::post('/stories/{story}/testcases/generate', [\App\Http\Controllers\TestcaseController::class, 'generate'])->name('testcases.generate');
     Route::resource('stories', StoryController::class);
 });
 

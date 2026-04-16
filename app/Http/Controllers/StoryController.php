@@ -137,7 +137,7 @@ class StoryController extends Controller
 
     public function show(Story $story)
     {
-        $story->load(['product', 'additionals']);
+        $story->load(['product', 'additionals', 'testcases']);
         
         return Inertia::render('Stories/Show', [
             'story' => $story

@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Testcase extends Model
+{
+    protected $fillable = [
+        'story_id',
+        'name',
+        'status',
+        'description',
+        'script',
+    ];
+
+    public function story()
+    {
+        return $this->belongsTo(Story::class);
+    }
+}
