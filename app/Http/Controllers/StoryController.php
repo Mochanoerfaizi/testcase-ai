@@ -135,6 +135,15 @@ class StoryController extends Controller
         return redirect()->route('stories.index')->with('success', 'Stories imported successfully.');
     }
 
+    public function show(Story $story)
+    {
+        $story->load(['product', 'additionals']);
+        
+        return Inertia::render('Stories/Show', [
+            'story' => $story
+        ]);
+    }
+
     public function edit(Story $story)
     {
         return Inertia::render('Stories/Edit', [

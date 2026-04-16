@@ -109,6 +109,7 @@ export default function StoriesIndex({ stories, filters = {} }) {
                                             <Table.Cell>{new Date(story.taiga_created_at).toLocaleDateString()}</Table.Cell>
                                             <Table.Cell>
                                                 <Flex gap={2}>
+                                                    <Button as={Link} href={route('stories.show', story.id)} size="sm" colorPalette="teal">View</Button>
                                                     <Button size="sm" colorPalette="purple" onClick={() => openAdditionalModal(story)}>
                                                         Extras
                                                     </Button>
