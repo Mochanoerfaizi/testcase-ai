@@ -75,10 +75,10 @@ export default function StoryShow({ story }) {
                     mb={6}
                     borderRadius="2xl"
                     overflow="hidden"
-                    shadow="lg"
-                    bgGradient="to-br"
-                    gradientFrom="blue.600"
-                    gradientTo="teal.500"
+                    shadow="sm"
+                    bg="gray.100"
+                    border="1px solid"
+                    borderColor="gray.200"
                 >
                     <Card.Body p={{ base: 5, md: 8 }}>
                         <Flex
@@ -90,8 +90,8 @@ export default function StoryShow({ story }) {
                             <Box>
                                 <HStack mb={3} flexWrap="wrap" gap={2}>
                                     <Badge
-                                        bg="whiteAlpha.300"
-                                        color="white"
+                                        bg="gray.200"
+                                        color="gray.600"
                                         px={3}
                                         py={1}
                                         borderRadius="full"
@@ -102,8 +102,8 @@ export default function StoryShow({ story }) {
                                     </Badge>
                                     {story.product && (
                                         <Badge
-                                            bg="whiteAlpha.300"
-                                            color="white"
+                                            bg="gray.200"
+                                            color="gray.600"
                                             px={3}
                                             py={1}
                                             borderRadius="full"
@@ -114,7 +114,7 @@ export default function StoryShow({ story }) {
                                         </Badge>
                                     )}
                                 </HStack>
-                                <Heading as="h1" size={{ base: "lg", md: "xl" }} color="white" lineHeight="shorter">
+                                <Heading as="h1" size={{ base: "lg", md: "xl" }} color="gray.700" lineHeight="shorter">
                                     {story.subject}
                                 </Heading>
                             </Box>
@@ -124,9 +124,11 @@ export default function StoryShow({ story }) {
                                     onClick={generateTestcases}
                                     disabled={isGenerating}
                                     bg="white"
-                                    color="blue.700"
-                                    _hover={{ bg: "blue.50" }}
-                                    shadow="md"
+                                    color="gray.700"
+                                    border="1px solid"
+                                    borderColor="gray.300"
+                                    _hover={{ bg: "gray.100", borderColor: "gray.400" }}
+                                    shadow="sm"
                                     size="md"
                                     flexShrink={0}
                                     fontWeight="semibold"
