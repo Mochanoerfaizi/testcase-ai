@@ -1,9 +1,9 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, router } from "@inertiajs/react";
 import { Box, Button, Flex, Table, Text, Input, Dialog, Portal, VStack, HStack, Textarea } from "@chakra-ui/react";
-import { MdAdd, MdDelete, MdEdit } from "react-icons/md";
+import { MdAdd, MdDelete, MdEdit, MdRemoveRedEye } from "react-icons/md";
 import { toaster } from "@/Components/themes/ui/toaster";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export default function StoriesIndex({ stories, filters = {} }) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
@@ -21,6 +21,29 @@ export default function StoriesIndex({ stories, filters = {} }) {
     const [isAdditionalModalOpen, setIsAdditionalModalOpen] = useState(false);
     const [currentStory, setCurrentStory] = useState(null);
     const [additionalsList, setAdditionalsList] = useState([]);
+
+    // Hover-based floating menu state
+    const [hoverMenu, setHoverMenu] = useState(null); // { storyId, top, left }
+    const menuRef = useRef(null);
+    const hideTimer = useRef(null);
+
+    const showMenu = useCallback((story, iconEl) => {
+        clearTimeout(hideTimer.current);
+        const rect = iconEl.getBoundingClientRect();
+        setHoverMenu({
+            story,
+            top: rect.bottom + 6,
+            right: window.innerWidth - rect.right - rect.width / 2,
+        });
+    }, []);
+
+    const hideMenu = useCallback(() => {
+        hideTimer.current = setTimeout(() => setHoverMenu(null), 120);
+    }, []);
+
+    const cancelHide = useCallback(() => {
+        clearTimeout(hideTimer.current);
+    }, []);
 
     const openAdditionalModal = (story) => {
         setCurrentStory(story);
@@ -107,25 +130,31 @@ export default function StoriesIndex({ stories, filters = {} }) {
                                             <Table.Cell>{story.product?.name}</Table.Cell>
                                             <Table.Cell>{story.creator_name}</Table.Cell>
                                             <Table.Cell>{new Date(story.taiga_created_at).toLocaleDateString()}</Table.Cell>
-                                            <Table.Cell>
-                                                <Flex gap={2}>
-                                                    <Button as={Link} href={route('stories.show', story.id)} size="sm" colorPalette="teal">View</Button>
-                                                    <Button size="sm" colorPalette="purple" onClick={() => openAdditionalModal(story)}>
-                                                        Extras
-                                                    </Button>
-                                                    <Button as={Link} href={route('stories.edit', story.id)} size="sm" colorPalette="yellow">Edit</Button>
-                                                    <Button
-                                                        size="sm"
-                                                        colorPalette="red"
-                                                        onClick={() => {
-                                                            if (confirm('Are you sure you want to delete this story?')) {
-                                                                router.delete(route('stories.destroy', story.id));
-                                                            }
-                                                        }}
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                </Flex>
+                                            <Table.Cell style={{ width: '48px', textAlign: 'center' }}>
+                                                {/* Eye icon — hover to reveal floating action menu */}
+                                                <Box
+                                                    as="button"
+                                                    onMouseEnter={(e) => showMenu(story, e.currentTarget)}
+                                                    onMouseLeave={hideMenu}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: '6px',
+                                                        borderRadius: '50%',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: '#9ca3af',
+                                                        transition: 'color 0.2s, background 0.2s',
+                                                    }}
+                                                    onFocus={(e) => { e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.background = '#f3f4f6'; }}
+                                                    onBlur={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none'; }}
+                                                    _hover={{ color: '#6b7280', background: '#f3f4f6' }}
+                                                    aria-label="Actions"
+                                                >
+                                                    <MdRemoveRedEye size={20} />
+                                                </Box>
                                             </Table.Cell>
                                         </Table.Row>
                                     ))
@@ -141,6 +170,97 @@ export default function StoriesIndex({ stories, filters = {} }) {
                     </Box>
                 </Box>
             </Box>
+
+            {/* Floating action menu — rendered via fixed positioning, never affects table layout */}
+            {hoverMenu && (
+                <Box
+                    ref={menuRef}
+                    onMouseEnter={cancelHide}
+                    onMouseLeave={hideMenu}
+                    style={{
+                        position: 'fixed',
+                        top: `${hoverMenu.top}px`,
+                        right: `${hoverMenu.right}px`,
+                        zIndex: 9999,
+                        background: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '10px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+                        minWidth: '140px',
+                        overflow: 'hidden',
+                        animation: 'fadeSlideIn 0.12s ease',
+                    }}
+                >
+                    <style>{`
+                        @keyframes fadeSlideIn {
+                            from { opacity: 0; transform: translateY(-4px); }
+                            to   { opacity: 1; transform: translateY(0); }
+                        }
+                        .action-menu-item {
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            width: 100%;
+                            padding: 9px 16px;
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: #374151;
+                            background: none;
+                            border: none;
+                            cursor: pointer;
+                            text-decoration: none;
+                            transition: background 0.15s, color 0.15s;
+                        }
+                        .action-menu-item:hover { background: #f9fafb; }
+                        .action-menu-item.view   { color: #0d9488; }
+                        .action-menu-item.extras { color: #7c3aed; }
+                        .action-menu-item.edit   { color: #d97706; }
+                        .action-menu-item.delete { color: #dc2626; }
+                        .action-menu-item.view:hover   { background: #f0fdfa; }
+                        .action-menu-item.extras:hover { background: #faf5ff; }
+                        .action-menu-item.edit:hover   { background: #fffbeb; }
+                        .action-menu-item.delete:hover { background: #fef2f2; }
+                        .action-menu-divider {
+                            height: 1px;
+                            background: #f3f4f6;
+                            margin: 2px 0;
+                        }
+                    `}</style>
+
+                    <Link
+                        href={route('stories.show', hoverMenu.story.id)}
+                        className="action-menu-item view"
+                    >
+                        <MdRemoveRedEye size={15} /> View
+                    </Link>
+                    <div className="action-menu-divider" />
+                    <button
+                        className="action-menu-item extras"
+                        onClick={() => { setHoverMenu(null); openAdditionalModal(hoverMenu.story); }}
+                    >
+                        <MdEdit size={15} /> Extras
+                    </button>
+                    <div className="action-menu-divider" />
+                    <Link
+                        href={route('stories.edit', hoverMenu.story.id)}
+                        className="action-menu-item edit"
+                    >
+                        <MdEdit size={15} /> Edit
+                    </Link>
+                    <div className="action-menu-divider" />
+                    <button
+                        className="action-menu-item delete"
+                        onClick={() => {
+                            setHoverMenu(null);
+                            if (confirm('Are you sure you want to delete this story?')) {
+                                router.delete(route('stories.destroy', hoverMenu.story.id));
+                            }
+                        }}
+                    >
+                        <MdDelete size={15} /> Delete
+                    </button>
+                </Box>
+            )}
 
             <Dialog.Root open={isAdditionalModalOpen} onOpenChange={(e) => setIsAdditionalModalOpen(e.open)} size="xl">
                 <Portal>
