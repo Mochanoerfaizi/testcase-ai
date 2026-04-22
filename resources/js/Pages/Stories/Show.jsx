@@ -8,6 +8,252 @@ import {
 } from "@chakra-ui/react";
 import { MdArrowBack, MdDownload, MdAutoAwesome, MdPerson, MdCalendarToday, MdImportExport } from "react-icons/md";
 
+// ── BDD keyword color config ─────────────────────────────────────────────────
+const BDD_COLORS = {
+    Given: { bg: "#EFF6FF", border: "#3B82F6", label: "#1D4ED8" },
+    When:  { bg: "#F0FDF4", border: "#22C55E", label: "#15803D" },
+    Then:  { bg: "#FFF7ED", border: "#F97316", label: "#C2410C" },
+    And:   { bg: "#F5F3FF", border: "#8B5CF6", label: "#6D28D9" },
+    But:   { bg: "#FFF1F2", border: "#F43F5E", label: "#BE123C" },
+};
+
+// URL regex — matches http/https URLs
+const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+/**
+ * Split a text segment into plain-text chunks and URL chunks.
+ * Returns: Array<{ type: "text"|"url", value: string }>
+ */
+function splitTextAndUrls(text) {
+    const parts = [];
+    let last = 0;
+    let match;
+    const re = new RegExp(URL_REGEX.source, "g");
+    while ((match = re.exec(text)) !== null) {
+        if (match.index > last) parts.push({ type: "text", value: text.slice(last, match.index) });
+        parts.push({ type: "url", value: match[0] });
+        last = match.index + match[0].length;
+    }
+    if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
+    return parts;
+}
+
+/** Render a line of text with embedded URLs turned into clickable links */
+function RichText({ text, ...props }) {
+    const parts = splitTextAndUrls(text);
+    return (
+        <Text {...props}>
+            {parts.map((p, i) =>
+                p.type === "url" ? (
+                    <Box
+                        as="a"
+                        key={i}
+                        href={p.value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        display="inline-flex"
+                        alignItems="center"
+                        gap={1}
+                        color="blue.500"
+                        fontWeight="medium"
+                        fontSize="xs"
+                        px={2}
+                        py={0.5}
+                        bg="blue.50"
+                        borderRadius="md"
+                        border="1px solid"
+                        borderColor="blue.200"
+                        maxW="100%"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                        verticalAlign="middle"
+                        mx={1}
+                        _hover={{ bg: "blue.100", borderColor: "blue.400", textDecoration: "none" }}
+                        title={p.value}
+                    >
+                        🔗 {p.value.replace(/^https?:\/\//, "").slice(0, 55)}{p.value.length > 62 ? "…" : ""}
+                    </Box>
+                ) : (
+                    <span key={i}>{p.value}</span>
+                )
+            )}
+        </Text>
+    );
+}
+
+/**
+ * Parse description text into structured blocks.
+ * Handles: plain text, BDD (Given/When/Then/And), and Skenario groupings.
+ */
+function parseDescription(raw) {
+    if (!raw) return null;
+
+    // Strip HTML tags, decode entities, normalise whitespace
+    let plain = raw
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .trim();
+
+    // Try to split by numbered scenarios or "Skenario:" prefix
+    const scenarioRegex = /(\d+\.\s*Skenario\s*:|Skenario\s*:)/gi;
+    const parts = plain.split(scenarioRegex);
+
+    const scenarios = [];
+    let preamble = "";
+
+    if (parts.length <= 1) {
+        preamble = "";
+        scenarios.push({ title: null, rawText: plain });
+    } else {
+        preamble = parts[0].trim();
+        for (let i = 1; i < parts.length; i += 2) {
+            const content = parts[i + 1] || "";
+            const firstKeywordIdx = content.search(/\b(Given|When|Then|And|But)\s*:/i);
+            const title = firstKeywordIdx > 0 ? content.slice(0, firstKeywordIdx).trim() : "";
+            const body  = firstKeywordIdx >= 0 ? content.slice(firstKeywordIdx) : content;
+            scenarios.push({ title, rawText: body });
+        }
+    }
+
+    // Parse BDD steps or plain paragraphs from each scenario block
+    const parsed = scenarios.map((sc) => {
+        const keywordPattern = /\b(Given|When|Then|And|But)\s*:/gi;
+        const hasBDD = keywordPattern.test(sc.rawText);
+        keywordPattern.lastIndex = 0;
+
+        if (hasBDD) {
+            // Extract BDD steps
+            const steps = [];
+            let matchB;
+            let lastIdx = 0;
+            let lastKeyword = null;
+            const text = sc.rawText;
+            while ((matchB = keywordPattern.exec(text)) !== null) {
+                if (lastKeyword !== null) {
+                    steps.push({ type: "bdd", keyword: lastKeyword, text: text.slice(lastIdx, matchB.index).trim() });
+                }
+                lastKeyword = matchB[1];
+                lastIdx = matchB.index + matchB[0].length;
+            }
+            if (lastKeyword !== null) {
+                steps.push({ type: "bdd", keyword: lastKeyword, text: text.slice(lastIdx).trim() });
+            }
+            return { ...sc, isBDD: true, blocks: steps };
+        } else {
+            // Split plain text into paragraphs (double-newline or single newline)
+            const lines = sc.rawText
+                .split(/\n{2,}/)          // prefer double-newline paragraphs
+                .flatMap(chunk => {
+                    // if a chunk has single newlines, split further
+                    const sub = chunk.split(/\n/).map(l => l.trim()).filter(Boolean);
+                    return sub.length > 0 ? [sub.join(" ")] : [];
+                })
+                .filter(Boolean);
+
+            const blocks = lines.map(line => ({ type: "plain", text: line }));
+            return { ...sc, isBDD: false, blocks };
+        }
+    });
+
+    return { preamble, scenarios: parsed };
+}
+
+/** BDD step block with colored left border */
+function BDDStep({ keyword, text }) {
+    const colors = BDD_COLORS[keyword] || { bg: "#F9FAFB", border: "#D1D5DB", label: "#374151" };
+    return (
+        <Box
+            pl={4} pr={3} py={2} mb={2}
+            bg={colors.bg}
+            borderLeftWidth="3px"
+            borderLeftColor={colors.border}
+            borderRadius="md"
+        >
+            <Text as="span" fontWeight="bold" fontSize="xs" color={colors.label}
+                textTransform="uppercase" letterSpacing="wider" mr={2}>
+                {keyword}:
+            </Text>
+            <RichText as="span" fontSize="sm" color="gray.700" lineHeight={1.7} text={text} />
+        </Box>
+    );
+}
+
+/** Plain paragraph block — nicely styled */
+function PlainBlock({ text }) {
+    return (
+        <Box
+            py={2} px={3} mb={2}
+            bg="gray.50"
+            borderRadius="md"
+            borderLeftWidth="3px"
+            borderLeftColor="gray.300"
+        >
+            <RichText fontSize="sm" color="gray.700" lineHeight={1.8} text={text} />
+        </Box>
+    );
+}
+
+/** Universal description renderer — works for all description types */
+function FormattedDescription({ raw }) {
+    const data = parseDescription(raw);
+    if (!data) {
+        return (
+            <Text fontStyle="italic" color="gray.400" fontSize="sm">
+                No description provided.
+            </Text>
+        );
+    }
+
+    const { preamble, scenarios } = data;
+
+    return (
+        <VStack align="stretch" gap={5}>
+            {/* Preamble heading (e.g. "Acceptance Criteria (Kriteria Penerimaan)") */}
+            {preamble && (
+                <Box
+                    px={3} py={2}
+                    bg="gray.100"
+                    borderRadius="md"
+                    borderLeftWidth="3px"
+                    borderLeftColor="gray.400"
+                >
+                    <Text fontSize="sm" fontWeight="semibold" color="gray.600">
+                        {preamble}
+                    </Text>
+                </Box>
+            )}
+
+            {scenarios.map((sc, idx) => (
+                <Box key={idx}>
+                    {/* Scenario title (for BDD stories) */}
+                    {sc.title && (
+                        <Text fontSize="sm" fontWeight="bold" color="gray.800" mb={3}>
+                            {scenarios.length > 1 ? `${idx + 1}. ` : ""}Skenario: {sc.title}
+                        </Text>
+                    )}
+
+                    {/* Render each block */}
+                    <VStack align="stretch" gap={0}>
+                        {sc.blocks.map((block, bIdx) =>
+                            block.type === "bdd"
+                                ? <BDDStep key={bIdx} keyword={block.keyword} text={block.text} />
+                                : <PlainBlock key={bIdx} text={block.text} />
+                        )}
+                    </VStack>
+                </Box>
+            ))}
+        </VStack>
+    );
+}
+
 const severityColor = (s) => {
     if (!s) return "gray";
     if (s === "Critical" || s === "High") return "red";
@@ -149,27 +395,14 @@ export default function StoryShow({ story }) {
                             Description
                         </Heading>
                         <Separator mb={4} />
-                        {story.description ? (
-                            <Box
-                                className="prose max-w-none text-gray-700"
-                                dangerouslySetInnerHTML={{ __html: story.description }}
-                                sx={{
-                                    "& p": { mb: 4, lineHeight: 1.8, color: "gray.700", wordBreak: "break-word", overflowWrap: "anywhere" },
-                                    "& ul, & ol": { pl: 5, mb: 4 },
-                                    "& li": { mb: 1, wordBreak: "break-word", overflowWrap: "anywhere" },
-                                    "& h1, & h2, & h3, & h4": { mt: 6, mb: 3, fontWeight: "bold" },
-                                    "& a": { color: "blue.500", wordBreak: "break-all" },
-                                    "& img": { maxW: "100%", h: "auto" },
-                                    wordBreak: "break-word",
-                                    overflowWrap: "anywhere",
-                                    overflow: "hidden",
-                                }}
-                            />
-                        ) : (
-                            <Text fontStyle="italic" color="gray.400" fontSize="sm">
-                                No description provided.
-                            </Text>
-                        )}
+                        {story.description
+                            ? <FormattedDescription raw={story.description} />
+                            : (
+                                <Text fontStyle="italic" color="gray.400" fontSize="sm">
+                                    No description provided.
+                                </Text>
+                            )
+                        }
                     </Card.Body>
                 </Card.Root>
 

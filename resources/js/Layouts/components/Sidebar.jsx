@@ -167,28 +167,28 @@ export default function Sidebar({ isOpen }) {
                         <Portal>
                             <Menu.Positioner>
                                 <Menu.Content minW="200px">
-                                    <Menu.Item
+                                    {/* <Menu.Item
                                         value="account"
                                         onClick={() => window.location.href = route("profile.edit")}
                                         cursor="pointer"
                                         _hover={{ bg: "gray.100" }}
                                     >
                                         Account
-                                    </Menu.Item>
-                                    <Menu.Item
+                                    </Menu.Item> */}
+                                    {/* <Menu.Item
                                         value="billing"
                                         cursor="pointer"
                                         _hover={{ bg: "gray.100" }}
                                     >
                                         Billing
-                                    </Menu.Item>
-                                    <Menu.Item
+                                    </Menu.Item> */}
+                                    {/* <Menu.Item
                                         value="notifications"
                                         cursor="pointer"
                                         _hover={{ bg: "gray.100" }}
                                     >
                                         Notifications
-                                    </Menu.Item>
+                                    </Menu.Item> */}
                                     <Menu.Separator />
                                     <Menu.Item
                                         value="logout"
