@@ -24,7 +24,51 @@ class TestcaseController extends Controller
             $url = rtrim($url, '/') . '/v1/chat/completions';
         }
 
-        $prompt = "Buatkan testcase QA dalam bahasa indonesia berdasarkan deskripsi user story berikut. Hasilkan tepat dua testcase: satu positif (Positive Case) dan satu negatif (Negative Case). Hanya kembalikan output murni dalam format array JSON tanpa markdown block (jangan pakai ```json). Setiap item dalam array adalah sebuah objek yang memiliki field: 'tc_id' (contoh: 'TC0001'), 'title' (judul singkat), 'summary' (ringkasan), 'severity' (Low/Medium/High/Critical), 'prerequisites' (prasyarat), 'test_procedure' (langkah-langkah terurut bernomor), 'expected_result' (hasil yang diharapkan), dan 'case_type' (isi dengan 'Positive' atau 'Negative'). \n\nDeskripsi Story:\n" . strip_tags($story->description);
+        $storyDescription = strip_tags($story->description);
+
+        $prompt = <<<PROMPT
+## TASK
+Buatkan test case QA profesional dalam Bahasa Indonesia berdasarkan user story yang diberikan.
+
+## KONTEKS
+User story yang akan diuji adalah sebagai berikut:
+"{$storyDescription}"
+
+Test case ini akan digunakan oleh tim QA untuk memvalidasi fungsionalitas fitur yang dijelaskan dalam user story di atas.
+
+## BATASAN
+- Gunakan Bahasa Indonesia untuk semua nilai teks
+- Setiap test case harus relevan dan spesifik terhadap user story
+- Langkah-langkah test_procedure harus jelas, terurut, dan dapat diikuti
+- Nilai severity harus salah satu dari: Low, Medium, High, atau Critical
+- Nilai case_type harus: "Positive" atau "Negative"
+- JANGAN sertakan markdown, komentar, atau teks penjelasan di luar array JSON
+
+## FORMAT
+Kembalikan HANYA array JSON murni (tanpa ```json atau tanda apapun) dengan struktur berikut:
+[
+  {
+    "tc_id": "TC0001",
+    "title": "Judul singkat test case",
+    "summary": "Ringkasan singkat tujuan test case ini",
+    "severity": "High",
+    "prerequisites": "Prasyarat yang harus dipenuhi sebelum menjalankan test",
+    "test_procedure": "1. Langkah pertama\n2. Langkah kedua\n3. Langkah ketiga",
+    "expected_result": "Hasil yang diharapkan setelah test dijalankan",
+    "case_type": "Positive"
+  },
+  {
+    "tc_id": "TC0002",
+    "title": "Judul singkat test case",
+    "summary": "Ringkasan singkat tujuan test case ini",
+    "severity": "Medium",
+    "prerequisites": "Prasyarat yang harus dipenuhi sebelum menjalankan test",
+    "test_procedure": "1. Langkah pertama\n2. Langkah kedua\n3. Langkah ketiga",
+    "expected_result": "Hasil yang diharapkan setelah test dijalankan",
+    "case_type": "Negative"
+  }
+]
+PROMPT;
 
         try {
             // Set up a slightly longer timeout just in case the AI takes time
@@ -34,7 +78,7 @@ class TestcaseController extends Controller
             ])->post($url, [
                 'model' => config('services.openai_custom.model', 'gpt-3.5-turbo'),
                 'messages' => [
-                    ['role' => 'system', 'content' => 'You are an expert QA Engineer API. You return strictly raw JSON arrays only without any formatting.'],
+                    ['role' => 'system', 'content' => 'Kamu adalah QA Engineer profesional yang berpengalaman dalam membuat test case berkualitas tinggi. Tugasmu adalah menghasilkan test case berdasarkan user story yang diberikan. Kamu HANYA boleh mengembalikan output berupa array JSON mentah (raw JSON array) tanpa markdown, tanpa penjelasan tambahan, tanpa prefix apapun. Jika ada kesalahan atau informasi kurang, tetap kembalikan array JSON kosong [].'],
                     ['role' => 'user', 'content' => $prompt]
                 ],
                 'temperature' => 0.7
